@@ -1,0 +1,58 @@
+let url = "https://www.photoacompanhantes.com/acompanhantes/buzios"//url//
+const fs = require("fs");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+puppeteer.use(StealthPlugin());
+
+let num = fs.readFileSync("main.js","utf8").split("\n");
+num = parseInt(num[num.length - 1].split(" ")[1])
+fs.appendFileSync("main.js",`\n// ${num + 1}`,"utf8")
+
+let links = fs.readFileSync("url.txt","utf8").split("\n");
+let data = fs.readFileSync("main.js","utf8").split("//url//");
+data[0] = `let url = "${links[num]}"`;
+fs.writeFileSync("main.js",`${data.join("//url//")}`,"utf8");
+
+
+(async () => {
+  const browser = await puppeteer.launch({
+    headless: false,
+    executablePath:
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    userDataDir:
+      "/Users/amitanand/Library/Application Support/Google/Chrome/Profile 1",
+    defaultViewport: null,
+    args: ["--start-maximized", "--disable-notifications"],
+  });
+  const page = await browser.newPage();
+  await page.goto(url, {waitUntil: 'networkidle0'});
+  const searchResultSelector = "#resultados .pin.top_off";
+  await page.waitForSelector(searchResultSelector);
+  await page.click(searchResultSelector);
+  let count = 1;
+  let dup = "";
+  while (1 == 1) {
+    const textSelector = await page.waitForSelector("#ficha_datos > h1");
+    const fullTitle = await textSelector.evaluate((el) => el.textContent);
+    const textSelector1 = await page.waitForSelector("#ficha_texto");
+    const fullTitle1 = await textSelector1.evaluate((el) => el.textContent);
+    let str = `"${fullTitle.trim().replace(/"/g, "")}","${fullTitle1.trim().replace(/"/g, "")}"\n`;
+    if (str != dup) {
+      fs.appendFileSync("data.csv", str, "utf8");
+    }
+    // console.log(count);
+    count++;
+    dup = str;
+    const next = "#resultados_anuncio_siguiente";
+    let mayend = await page.waitForSelector(next);
+    await page.click(next, { delay: 500 });
+    
+    
+    let end = await page.evaluate('document.querySelector("#resultados_anuncio_siguiente").getAttribute("class")');
+    if (end.split(" ")[1] == "disabled") break;
+  }
+  await browser.close()
+})();
+
+
+// 0
